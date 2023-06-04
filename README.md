@@ -6,4 +6,5 @@ Place preprocessors folder in %AppData%\FlatCAM, then just use.
 
 ## Info
 Currently supported: boundaries, speed, power
+
 Currently not supported: thumbnail
