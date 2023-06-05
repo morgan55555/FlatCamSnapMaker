@@ -64,12 +64,12 @@ class Snapmaker_laser(PreProc):
         gcode += ";renderMethod: line\n"
         gcode += ";is_rotate: false\n"
 
-        units = p["units"]
+        units = p.units
 
-        xmin = units_to_mm(p["options"]["xmin"], units)
-        xmax = units_to_mm(p["options"]["xmax"], units)
-        ymin = units_to_mm(p["options"]["ymin"], units)
-        ymax = units_to_mm(p["options"]["ymax"], units)
+        xmin = units_to_mm(p.options.xmin, units)
+        xmax = units_to_mm(p.options.xmax, units)
+        ymin = units_to_mm(p.options.ymin, units)
+        ymax = units_to_mm(p.options.ymax, units)
 
         xmin_str = "%.*f" % (p.coords_decimals, xmin)
         xmax_str = "%.*f" % (p.coords_decimals, xmax)
@@ -85,13 +85,13 @@ class Snapmaker_laser(PreProc):
         gcode += ";min_b(mm): 0\n"
         gcode += ";min_z(mm): 0\n"
 
-        workspeed = units_to_mm(p["feedrate"], units)
-        jogspeed = units_to_mm(p["feedrate_rapid"], units)
+        workspeed = units_to_mm(p.feedrate, units)
+        jogspeed = units_to_mm(p.feedrate_rapid, units)
 
         gcode += ";work_speed(mm/minute): " + str(workspeed) + "\n"
         gcode += ";jog_speed(mm/minute): " + str(jogspeed) + "\n"
 
-        power = power_to_percents(p["spindlespeed"])
+        power = power_to_percents(p.spindlespeed)
 
         gcode += ";power(%): " + str(power) + "\n"
 
@@ -122,7 +122,8 @@ class Snapmaker_laser(PreProc):
 
     def down_code(self, p):
         if p.spindlespeed:
-            return "M3 S%s" % (str(p.spindlespeed))
+            power = power_to_percents(p.spindlespeed)
+            return "M3 P%s" % (str(power))
         else:
             return "M3"
 
@@ -148,7 +149,7 @@ class Snapmaker_laser(PreProc):
         gcode = "M107 P0\n"
         gcode += "; G-code END <<<\n"
 
-        coords_xy = p["xy_end"]
+        coords_xy = p.xy_end
         gcode += ("G0 Z" + self.feedrate_format % (p.fr_decimals, p.z_end) + " " + self.feedrate_rapid_code(p) + "\n")
 
         if coords_xy and coords_xy != "":
@@ -171,7 +172,8 @@ class Snapmaker_laser(PreProc):
     def spindle_code(self, p):
         gcode = "M106 P0 S255\n"
         if p.spindlespeed:
-            gcode += "M3 S%s" % (str(p.spindlespeed))
+            power = power_to_percents(p.spindlespeed)
+            gcode += "M3 P%s" % (str(power))
         else:
             gcode += "M3"
         return gcode

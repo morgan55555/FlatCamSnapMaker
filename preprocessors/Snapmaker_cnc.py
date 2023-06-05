@@ -8,6 +8,8 @@
 
 from appPreProcessor import PreProc
 
+MAX_RPM = 12000
+
 IMG_NO_IMAGE = ('iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAIAAAD2HxkiAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAACl'
 'dJREFUeNrs3Wtv03YbwGEoZRyebRLivA22aYhNQki82vf/Apu2Fdi6lh62MppTW0jTloYkz/20kpenFJo4dg72db1AiIMLrn+9/3Yd53yv1zsHTM55EYIIQY'
 'SACEGEgAhBhIAIQYSACEGEgAhBhIAIQYSACEGEgAhBhIAIQYSACEGEgAhBhIAIQYSACEGEgAhBhMBsRLi1tbW6umpfM4vu379/8+bNXD/E/Bj+G+12u9ls+n'
@@ -48,6 +50,10 @@ def units_to_mm(value, units):
     return value
 
 
+def rpm_to_power(value):
+    return value / MAX_RPM * 100
+
+
 class Snapmaker_cnc(PreProc):
     include_header = True
     coordinate_format = "%.*f"
@@ -60,14 +66,14 @@ class Snapmaker_cnc(PreProc):
         gcode += ";renderMethod: line\n"
         gcode += ";is_rotate: false\n"
 
-        units = p["units"]
+        units = p.units
 
-        xmin = units_to_mm(p["options"]["xmin"], units)
-        xmax = units_to_mm(p["options"]["xmax"], units)
-        ymin = units_to_mm(p["options"]["ymin"], units)
-        ymax = units_to_mm(p["options"]["ymax"], units)
-        zmin = units_to_mm(p['z_cut'], units)
-        zmax = units_to_mm(p['z_move'], units)
+        xmin = units_to_mm(p.options.xmin, units)
+        xmax = units_to_mm(p.options.xmax, units)
+        ymin = units_to_mm(p.options.ymin, units)
+        ymax = units_to_mm(p.options.ymax, units)
+        zmin = units_to_mm(p.z_cut, units)
+        zmax = units_to_mm(p.z_move, units)
 
         xmin_str = "%.*f" % (p.coords_decimals, xmin)
         xmax_str = "%.*f" % (p.coords_decimals, xmax)
@@ -85,13 +91,15 @@ class Snapmaker_cnc(PreProc):
         gcode += ";min_b(mm): 0\n"
         gcode += ";min_z(mm): " + "{: >9s}".format(zmin_str) + "\n"
 
-        workspeed = units_to_mm(p["feedrate"], units)
-        jogspeed = units_to_mm(p["feedrate_rapid"], units)
+        workspeed = units_to_mm(p.feedrate, units)
+        jogspeed = units_to_mm(p.feedrate_rapid, units)
 
         gcode += ";work_speed(mm/minute): " + str(workspeed) + "\n"
         gcode += ";jog_speed(mm/minute): " + str(jogspeed) + "\n"
 
-        gcode += ";power(%): " + str(p["spindlespeed"]) + "\n"
+        spindlespeed = rpm_to_power(p.spindlespeed)
+
+        gcode += ";power(%): " "{: >9s}".format(spindlespeed) + "\n"
 
         gcode += ";thumbnail: data:image/png;base64," + IMG_NO_IMAGE + "\n"
         gcode += ";Header End\n"
@@ -137,8 +145,8 @@ class Snapmaker_cnc(PreProc):
 
         toolC_formatted = '%.*f' % (p.decimals, p.toolC)
 
-        if str(p['options']['type']) == 'Excellon':
-            for i in p['options']['Tools_in_use']:
+        if str(p.options.type) == 'Excellon':
+            for i in p.options.Tools_in_use:
                 if i[0] == p.tool:
                     no_drills = i[2]
 
@@ -226,7 +234,7 @@ G0 Z{z_toolchange}
         gcode = "M5\n"
         gcode += "; G-code END <<<\n"
 
-        coords_xy = p['xy_end']
+        coords_xy = p.xy_end
         gcode += ('G0 Z' + self.feedrate_format % (p.fr_decimals, p.z_end) + " " + self.feedrate_rapid_code(p) + "\n")
 
         if coords_xy and coords_xy != '':
@@ -252,7 +260,8 @@ G0 Z{z_toolchange}
     def spindle_code(self, p):
         sdir = {'CW': 'M3', 'CCW': 'M4'}[p.spindledir]
         if p.spindlespeed:
-            return '%s P%s' % (sdir, str(p.spindlespeed))
+            spindlespeed = rpm_to_power(p.spindlespeed)
+            return '%s P%s' % (sdir, str(spindlespeed))
         else:
             return sdir
 
