@@ -34,10 +34,10 @@ class Snapmaker_laser_marlin(PreProc):
 
         units = p["units"]
 
-        xmin = units_to_mm(p["options"]["xmin"], units)
-        xmax = units_to_mm(p["options"]["xmax"], units)
-        ymin = units_to_mm(p["options"]["ymin"], units)
-        ymax = units_to_mm(p["options"]["ymax"], units)
+        xmin = units_to_mm(p["obj_options"]["xmin"], units)
+        xmax = units_to_mm(p["obj_options"]["xmax"], units)
+        ymin = units_to_mm(p["obj_options"]["ymin"], units)
+        ymax = units_to_mm(p["obj_options"]["ymax"], units)
 
         xmin_str = "%.*f" % (p.coords_decimals, xmin)
         xmax_str = "%.*f" % (p.coords_decimals, xmax)
@@ -103,8 +103,20 @@ class Snapmaker_laser_marlin(PreProc):
         return gcode
 
     def position_code(self, p):
-        return ("X" + self.coordinate_format + " Y" + self.coordinate_format) % \
-               (p.coords_decimals, p.x, p.coords_decimals, p.y)
+        # formula for skewing on x for example is:
+        # x_fin = x_init + y_init/slope where slope = p._bed_limit_y / p._bed_skew_x (a.k.a tangent)
+        if p._bed_skew_x == 0:
+            x_pos = p.x + p._bed_offset_x
+        else:
+            x_pos = (p.x + p._bed_offset_x) + ((p.y / p._bed_limit_y) * p._bed_skew_x)
+
+        if p._bed_skew_y == 0:
+            y_pos = p.y + p._bed_offset_y
+        else:
+            y_pos = (p.y + p._bed_offset_y) + ((p.x / p._bed_limit_x) * p._bed_skew_y)
+
+        return ('X' + self.coordinate_format + ' Y' + self.coordinate_format) % \
+               (p.coords_decimals, x_pos, p.coords_decimals, y_pos)
 
     def rapid_code(self, p):
         return ("G0 " + self.position_code(p)).format(**p) + " " + self.feedrate_rapid_code(p)

@@ -36,10 +36,10 @@ class Snapmaker_cnc_marlin(PreProc):
 
         units = p["units"]
 
-        xmin = units_to_mm(p["options"]["xmin"], units)
-        xmax = units_to_mm(p["options"]["xmax"], units)
-        ymin = units_to_mm(p["options"]["ymin"], units)
-        ymax = units_to_mm(p["options"]["ymax"], units)
+        xmin = units_to_mm(p["obj_options"]["xmin"], units)
+        xmax = units_to_mm(p["obj_options"]["xmax"], units)
+        ymin = units_to_mm(p["obj_options"]["ymin"], units)
+        ymax = units_to_mm(p["obj_options"]["ymax"], units)
         zmin = units_to_mm(p['z_cut'], units)
         zmax = units_to_mm(p['z_move'], units)
 
@@ -112,10 +112,8 @@ class Snapmaker_cnc_marlin(PreProc):
 
         toolC_formatted = '%.*f' % (p.decimals, p.toolC)
 
-        if str(p['options']['type']) == 'Excellon':
-            for i in p['options']['Tools_in_use']:
-                if i[0] == p.tool:
-                    no_drills = i[2]
+        if str(p['obj_options']['type']) == 'Excellon':
+            no_drills = p['tools'][int(p['tool'])]['nr_drills']
 
             if toolchangexy is not None:
                 gcode = """
@@ -188,8 +186,20 @@ G0 Z{z_toolchange}
         return 'G1 Z0' + " " + self.feedrate_code(p)
 
     def position_code(self, p):
+        # formula for skewing on x for example is:
+        # x_fin = x_init + y_init/slope where slope = p._bed_limit_y / p._bed_skew_x (a.k.a tangent)
+        if p._bed_skew_x == 0:
+            x_pos = p.x + p._bed_offset_x
+        else:
+            x_pos = (p.x + p._bed_offset_x) + ((p.y / p._bed_limit_y) * p._bed_skew_x)
+
+        if p._bed_skew_y == 0:
+            y_pos = p.y + p._bed_offset_y
+        else:
+            y_pos = (p.y + p._bed_offset_y) + ((p.x / p._bed_limit_x) * p._bed_skew_y)
+
         return ('X' + self.coordinate_format + ' Y' + self.coordinate_format) % \
-               (p.coords_decimals, p.x, p.coords_decimals, p.y)
+               (p.coords_decimals, x_pos, p.coords_decimals, y_pos)
 
     def rapid_code(self, p):
         return ('G0 ' + self.position_code(p)).format(**p) + " " + self.feedrate_rapid_code(p)
@@ -198,11 +208,8 @@ G0 Z{z_toolchange}
         return ('G1 ' + self.position_code(p)).format(**p) + " " + self.inline_feedrate_code(p)
 
     def end_code(self, p):
-        gcode = "M5\n"
-        gcode += "; G-code END <<<\n"
-
         coords_xy = p['xy_end']
-        gcode += ('G0 Z' + self.feedrate_format % (p.fr_decimals, p.z_end) + " " + self.feedrate_rapid_code(p) + "\n")
+        gcode = ('G0 Z' + self.feedrate_format % (p.fr_decimals, p.z_end) + " " + self.feedrate_rapid_code(p) + "\n")
 
         if coords_xy and coords_xy != '':
             gcode += 'G0 X{x} Y{y}'.format(x=coords_xy[0], y=coords_xy[1]) + " " + self.feedrate_rapid_code(p) + "\n"
